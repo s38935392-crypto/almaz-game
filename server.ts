@@ -2,237 +2,130 @@ import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import fs from "fs";
+import { createClient } from '@supabase/supabase-js';
 
+// --- SOZLAMALAR ---
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "8541772961:AAEOt48FaNzK966bkN7bkfBm5UnJnl-Q8Kk";
 const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID;
 
-// Oddiy xotirada foydalanuvchilarni saqlash (production'da DB kerak)
-const users: Record<string, { diamonds: number; referredBy?: string; joinedAt: number }> = {};
-const referrals: Record<string, string[]> = {}; // referralCode -> [userId[]]
+// Supabase ulanishi (image_d2e4ee.png dan)
+const supabaseUrl = 'https://kyqudwhiwrrsfcpxjyef.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJwcm9qZWN0UmVmIjoia3lxdWR3aGl3cnJzZmNweGp5ZWYiLCJpYXQiOjE3NDcwNzE4NDMsImV4cCI6MjA2MjY0Nzg0M30.eyJpZCI6ImJmYmZzZzI3LWJmYmYtNGJmZi04YmZmLWJmYmZzZzI3YmZiZiIsInJvbGUiOiJhbm9uIn0'; 
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function sendTelegramMessage(chatId: string | number, text: string) {
   try {
     await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text,
-        parse_mode: "Markdown",
-      }),
+      body: JSON.stringify({ chat_id: chatId, text, parse_mode: "Markdown" }),
     });
   } catch (e) {
-    console.error("Telegram xabar yuborishda xato:", e);
+    console.error("Telegram xatolik:", e);
   }
 }
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
-
   app.use(express.json());
 
   // ── Telegram Bot Webhook ──────────────────────────────────────────────
   app.post("/api/telegram-webhook", async (req, res) => {
     const update = req.body;
-    res.sendStatus(200); // Telegramga tez javob
+    res.sendStatus(200);
 
     if (!update?.message) return;
 
     const msg = update.message;
-    const userId = msg.from?.id?.toString();
+    const userId = msg.from?.id;
     const chatId = msg.chat?.id;
     const text = msg.text || "";
-    const firstName = msg.from?.first_name || "Foydalanuvchi";
+    const username = msg.from?.username || msg.from?.first_name || "User";
 
     if (!userId) return;
 
-    // /start komandasi
     if (text.startsWith("/start")) {
       const parts = text.split(" ");
-      const startParam = parts[1] || ""; // referral kodi
+      const referrerId = parts.length > 1 ? parts[1] : null;
 
-      const isNewUser = !users[userId];
+      // 1. Bazada foydalanuvchi bormi?
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('*')
+        .eq('telegram_id', userId)
+        .single();
 
-      if (isNewUser) {
-        // Yangi foydalanuvchi
-        users[userId] = {
-          diamonds: 10, // Boshlang'ich bonus
-          joinedAt: Date.now(),
-        };
+      if (!existingUser) {
+        // Yangi foydalanuvchi bo'lsa - BAZAGA QO'SHISH
+        const { error: insertError } = await supabase
+          .from('users')
+          .insert([{ 
+            telegram_id: userId, 
+            username: username, 
+            balance: 10, // Boshlang'ich bonus
+            referred_by: (referrerId && referrerId !== userId.toString()) ? parseInt(referrerId) : null
+          }]);
 
-        // Referal bilan kelgan bo'lsa
-        if (startParam && startParam.startsWith("REF")) {
-          const referrerId = startParam.replace("REF", "");
+        if (!insertError) {
+          // 2. Taklif qilgan odamga BONUS BERISH
+          if (referrerId && referrerId !== userId.toString()) {
+            await supabase.rpc('increment_balance', { 
+                user_id: parseInt(referrerId), 
+                amount: 5 
+            });
 
-          if (referrerId !== userId) {
-            // Yangi foydalanuvchiga bonus
-            users[userId].diamonds += 5;
-            users[userId].referredBy = startParam;
-
-            // Referal beruvchiga bonus
-            if (!users[referrerId]) {
-              users[referrerId] = { diamonds: 10, joinedAt: Date.now() };
-            }
-            users[referrerId].diamonds += 5;
-
-            // Referallar ro'yxatiga qo'shish
-            if (!referrals[startParam]) referrals[startParam] = [];
-            referrals[startParam].push(userId);
-
-            // Referal beruvchiga xabar
-            await sendTelegramMessage(
-              referrerId,
-              `🎉 *Tabriklaymiz!*\n\n👤 *${firstName}* sizning havolangiz orqali qo'shildi!\n💎 Sizga *+5 Almaz* qo'shildi!\n\n💰 Jami almazlaringiz: *${users[referrerId].diamonds}*`
-            );
-
-            // Yangi foydalanuvchiga xabar
-            await sendTelegramMessage(
-              chatId,
-              `🎁 *Xush kelibsiz, ${firstName}!*\n\nReferal havola orqali keldingiz!\n💎 Sizga *+5 Almaz* sovg'a!\n\n🎮 Almazlaringiz: *${users[userId].diamonds}*\n\nO'yinni boshlash uchun quyidagi tugmani bosing 👇`
-            );
-          } else {
-            await sendTelegramMessage(
-              chatId,
-              `👋 *Xush kelibsiz, ${firstName}!*\n\n💎 Boshlang'ich almazlaringiz: *${users[userId].diamonds}*`
-            );
+            await sendTelegramMessage(referrerId, `🎉 *Tabriklaymiz!*\n\n👤 @${username} taklifingiz bilan qo'shildi!\n💎 Sizga *+5 Almaz* berildi!`);
           }
-        } else {
-          // Referalsiz kelgan yangi foydalanuvchi
-          await sendTelegramMessage(
-            chatId,
-            `👋 *Xush kelibsiz, ${firstName}!*\n\n💎 Boshlang'ich almazlaringiz: *${users[userId].diamonds}*\n\n🔗 Do'stlaringizni taklif qilib +5 almaz oling!`
-          );
+
+          await sendTelegramMessage(chatId, `🎁 *Xush kelibsiz, ${username}!*\n\n💎 Sizga 10 almaz sovg'a berildi!\n🔗 Do'stlarni taklif qilib ko'proq yuting!`);
         }
       } else {
-        // Eski foydalanuvchi
-        await sendTelegramMessage(
-          chatId,
-          `👋 *Qaytib keldingiz, ${firstName}!*\n\n💎 Almazlaringiz: *${users[userId].diamonds}*`
-        );
+        await sendTelegramMessage(chatId, `👋 *Salom, @${username}!*\n\n💎 Almazlaringiz: *${existingUser.balance}*`);
       }
     }
   });
 
-  // ── Foydalanuvchi ma'lumotlarini olish ──────────────────────────────
-  app.get("/api/user/:userId", (req, res) => {
+  // ── Foydalanuvchi balansini olish (Frontend uchun) ─────────────────
+  app.get("/api/user/:userId", async (req, res) => {
     const { userId } = req.params;
-    const user = users[userId];
-    if (!user) {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('telegram_id', userId)
+      .single();
+
+    if (error || !data) {
       return res.json({ diamonds: 10, referrals: [] });
     }
-    const userReferrals = referrals[`REF${userId}`] || [];
-    res.json({
-      diamonds: user.diamonds,
-      referrals: userReferrals,
-      referralCount: userReferrals.length,
-    });
+    res.json({ diamonds: data.balance, userId: data.telegram_id });
   });
 
-  // ── Referallar ro'yxatini olish ─────────────────────────────────────
-  app.get("/api/referrals/:referralCode", (req, res) => {
-    const { referralCode } = req.params;
-    const list = referrals[referralCode] || [];
-    res.json({ referrals: list, count: list.length });
-  });
-
-  // ── Bonus qo'shish (frontend dan) ───────────────────────────────────
-  app.post("/api/add-bonus", async (req, res) => {
-    const { userId, amount, reason } = req.body;
-    if (!users[userId]) {
-      users[userId] = { diamonds: 10, joinedAt: Date.now() };
-    }
-    users[userId].diamonds += amount;
-    res.json({ success: true, diamonds: users[userId].diamonds });
-  });
-
-  // ── Yechish so'rovi ──────────────────────────────────────────────────
+  // ── Yechish so'rovi (Admin'ga) ──────────────────────────────────────
   app.post("/api/withdraw", async (req, res) => {
-    const { userId, username, freeFireId, amount, diamondsBefore, diamondsAfter } = req.body;
+    const { userId, username, freeFireId, amount } = req.body;
 
-    if (!BOT_TOKEN || !ADMIN_CHAT_ID) {
-      console.error("TELEGRAM_BOT_TOKEN yoki ADMIN_CHAT_ID sozlanmagan");
-      return res.status(500).json({ error: "Server xatosi: Telegram sozlamalari noto'g'ri" });
-    }
-
-    const text = `
-🆕 *Yangi yechish so'rovi!*
-
-👤 *Foydalanuvchi:* ${username} (ID: ${userId})
-🎮 *Free Fire ID:* \`${freeFireId}\`
-💎 *Yechilayotgan miqdor:* ${amount} Almaz
-💰 *Eski balans:* ${diamondsBefore}
-📉 *Yangi balans:* ${diamondsAfter}
-
-Iltimos, tekshirib almazni tashlab bering.
-    `;
+    const text = `🆕 *Yechish so'rovi!*\n\n👤 User: ${username}\n🎮 FF ID: \`${freeFireId}\` \n💎 Miqdor: ${amount}`;
 
     try {
-      const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chat_id: ADMIN_CHAT_ID,
-          text,
-          parse_mode: "Markdown",
-        }),
-      });
-
-      if (response.ok) {
-        res.json({ success: true });
-      } else {
-        const errData = await response.json();
-        res.status(500).json({ error: "Telegramga xabar yuborib bo'lmadi" });
-      }
+      await sendTelegramMessage(ADMIN_CHAT_ID!, text);
+      res.json({ success: true });
     } catch (error) {
-      res.status(500).json({ error: "Ichki server xatosi" });
+      res.status(500).json({ error: "Xato" });
     }
   });
 
-  // ── Webhook o'rnatish ────────────────────────────────────────────────
-  app.get("/api/setup-webhook", async (req, res) => {
-    const domain = req.headers.host;
-    const webhookUrl = `https://${domain}/api/telegram-webhook`;
-
-    try {
-      const response = await fetch(
-        `https://api.telegram.org/bot${BOT_TOKEN}/setWebhook`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: webhookUrl }),
-        }
-      );
-      const data = await response.json();
-      res.json({ success: true, webhook: webhookUrl, result: data });
-    } catch (e) {
-      res.status(500).json({ error: "Webhook o'rnatishda xato" });
-    }
-  });
-
-  // ── Vite / Static ────────────────────────────────────────────────────
+  // ── Vite / Production sozlamalari ───────────────────────────────────
   if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
+    const vite = await createViteServer({ server: { middlewareMode: true }, appType: "spa" });
     app.use(vite.middlewares);
   } else {
     const distPath = path.resolve(process.cwd(), "dist");
     app.use(express.static(distPath));
-    app.get("*", (req, res) => {
-      const indexPath = path.join(distPath, "index.html");
-      if (fs.existsSync(indexPath)) {
-        res.sendFile(indexPath);
-      } else {
-        res.status(404).send("<h1>Build topilmadi</h1>");
-      }
-    });
+    app.get("*", (req, res) => res.sendFile(path.join(distPath, "index.html")));
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server ishga tushdi: http://0.0.0.0:${PORT}`);
-  });
+  app.listen(PORT, () => console.log(`Server: http://localhost:${PORT}`));
 }
 
 startServer();
