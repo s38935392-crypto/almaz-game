@@ -2,19 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { Diamond, CheckCircle2, Clock, ExternalLink, Share2 } from 'lucide-react';
 import { motion } from 'motion/react';
- 
+
 function formatTime(seconds: number): string {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   const s = seconds % 60;
   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
- 
+
 export const TasksView: React.FC = () => {
   const { tasks, completeTask, user, getDailyBonusTimeLeft, claimDailyBonus } = useApp();
   const [timeLeft, setTimeLeft] = useState(getDailyBonusTimeLeft());
   const [dailyClaimed, setDailyClaimed] = useState(getDailyBonusTimeLeft() > 0);
- 
+
   useEffect(() => {
     const interval = setInterval(() => {
       const left = getDailyBonusTimeLeft();
@@ -23,7 +23,7 @@ export const TasksView: React.FC = () => {
     }, 1000);
     return () => clearInterval(interval);
   }, [getDailyBonusTimeLeft]);
- 
+
   const handleTaskClick = (task: any) => {
     if (task.type === 'subscription') {
       if (task.completed) return;
@@ -45,7 +45,7 @@ export const TasksView: React.FC = () => {
       window.open(`https://t.me/share/url?url=${encodeURIComponent(refLink)}&text=${text}`, '_blank');
     }
   };
- 
+
   const getTaskButton = (task: any) => {
     if (task.type === 'subscription') {
       if (task.completed) {
@@ -66,7 +66,7 @@ export const TasksView: React.FC = () => {
         </button>
       );
     }
- 
+
     if (task.type === 'daily') {
       if (dailyClaimed && timeLeft > 0) {
         return (
@@ -86,7 +86,7 @@ export const TasksView: React.FC = () => {
         </button>
       );
     }
- 
+
     if (task.type === 'referral') {
       return (
         <button
@@ -98,10 +98,10 @@ export const TasksView: React.FC = () => {
         </button>
       );
     }
- 
+
     return null;
   };
- 
+
   const getTaskIcon = (task: any) => {
     if (task.type === 'subscription') {
       return (
@@ -130,14 +130,14 @@ export const TasksView: React.FC = () => {
       </div>
     );
   };
- 
+
   const getTaskSubtitle = (task: any) => {
     if (task.type === 'subscription') return 'Kanalga obuna bo\'lish uchun';
     if (task.type === 'daily') return dailyClaimed && timeLeft > 0 ? `Keyingisi: ${formatTime(timeLeft)}` : 'Har 24 soatda oling';
     if (task.type === 'referral') return 'Do\'stlarga tarqatib almaz oling';
     return 'Vazifa uchun';
   };
- 
+
   return (
     <div className="px-4 py-4 space-y-6 pb-24">
       {/* Hero Banner */}
@@ -158,7 +158,7 @@ export const TasksView: React.FC = () => {
           <Diamond size={100} className="fill-white" />
         </div>
       </div>
- 
+
       {/* Task Categories */}
       <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
         {['Xit', 'Promo', 'Eksklyuziv', 'Yangi', 'Yana'].map((cat) => (
@@ -170,12 +170,12 @@ export const TasksView: React.FC = () => {
           </button>
         ))}
       </div>
- 
+
       <div className="space-y-3">
         <h3 className="text-sm font-bold text-gray-800">
           Vazifalarni bajarib - ALMAZ oling!
         </h3>
- 
+
         {tasks.map((task, index) => (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -197,7 +197,7 @@ export const TasksView: React.FC = () => {
                 </div>
               </div>
             </div>
- 
+
             {getTaskButton(task)}
           </motion.div>
         ))}
