@@ -2,20 +2,20 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Diamond, Users, Copy, Share2, Info, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
- 
+
 export const ReferralsView: React.FC = () => {
   const { user, updateDiamonds, referrals, addReferral } = useApp();
   const [copied, setCopied] = useState(false);
- 
-  const botUsername = 'your_bot'; // O'zingizning bot username
+
+  const botUsername = 'FeeFireomadcharxpalakbot';
   const referralLink = `https://t.me/${botUsername}?start=${user.referralCode}`;
- 
+
   const copyToClipboard = () => {
     navigator.clipboard.writeText(referralLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
- 
+
   const handleShare = () => {
     const text = encodeURIComponent(
       `🎁 Almaz Wheel & Earn o'yinida bepul almaz ishlash!\n\n💎 Qo'shilsang 10 almaz sovg'a!\n\n👇 Bosib kir:`
@@ -24,10 +24,10 @@ export const ReferralsView: React.FC = () => {
     // Telegram share URL - opens Telegram with contact picker
     window.open(`https://t.me/share/url?url=${url}&text=${text}`, '_blank');
   };
- 
+
   const totalEarned = referrals.length * 5;
   const progressPercent = Math.min((referrals.length / 15) * 100, 100);
- 
+
   return (
     <div className="px-4 py-6 space-y-6 pb-40">
       <div className="flex flex-col items-center text-center space-y-2">
@@ -36,7 +36,7 @@ export const ReferralsView: React.FC = () => {
           Har bir do'st uchun 5 <Diamond size={12} className="inline fill-blue-400 text-blue-400" /> oling!
         </p>
       </div>
- 
+
       {/* Invite Progress Card */}
       <div className="bg-gradient-to-r from-blue-500 to-blue-400 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden">
         <div className="relative z-10 flex items-center justify-between">
@@ -61,7 +61,7 @@ export const ReferralsView: React.FC = () => {
           <Users size={120} />
         </div>
       </div>
- 
+
       {/* Stats Grid */}
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-50 flex flex-col items-center">
@@ -79,11 +79,11 @@ export const ReferralsView: React.FC = () => {
           <span className="text-[10px] uppercase font-bold opacity-80 mt-1">Almazlar</span>
         </div>
       </div>
- 
+
       {/* Friends List */}
       <div className="space-y-3">
         <h3 className="text-sm font-bold text-gray-800">Do'stlar ro'yxati</h3>
- 
+
         {referrals.length === 0 ? (
           <div className="bg-gray-50/50 rounded-3xl p-10 flex flex-col items-center text-center">
             <div className="w-16 h-16 bg-white rounded-full shadow-sm flex items-center justify-center text-gray-200 mb-4">
@@ -124,7 +124,7 @@ export const ReferralsView: React.FC = () => {
           </div>
         )}
       </div>
- 
+
       {/* Fixed bottom: link + share button */}
       <div className="fixed bottom-24 left-0 right-0 px-4 space-y-3">
         {/* Referral link copy row */}
@@ -150,7 +150,7 @@ export const ReferralsView: React.FC = () => {
             </AnimatePresence>
           </button>
         </div>
- 
+
         {/* Telegram Share Button - opens contact picker */}
         <button
           onClick={handleShare}
@@ -160,7 +160,7 @@ export const ReferralsView: React.FC = () => {
           DO'STLARGA TARQATISH
         </button>
       </div>
- 
+
       {/* Info */}
       <div className="bg-blue-50/50 rounded-2xl p-4 flex gap-3 border border-blue-50">
         <Info size={20} className="text-blue-400 shrink-0 mt-0.5" />
