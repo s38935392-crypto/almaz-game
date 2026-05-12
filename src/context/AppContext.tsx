@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
- 
+
 interface Task {
   id: string;
   title: string;
@@ -8,13 +8,13 @@ interface Task {
   type: 'subscription' | 'daily' | 'referral';
   channelUrl?: string;
 }
- 
+
 interface Referral {
   id: string;
   name: string;
   joinedAt: number;
 }
- 
+
 interface User {
   id: string;
   firstName: string;
@@ -24,7 +24,7 @@ interface User {
   referralCode: string;
   totalWon: number;
 }
- 
+
 interface AppContextType {
   user: User;
   tasks: Task[];
@@ -37,21 +37,21 @@ interface AppContextType {
   getDailyBonusTimeLeft: () => number; // seconds left, 0 = can claim
   claimDailyBonus: () => boolean;
 }
- 
+
 const AppContext = createContext<AppContextType | undefined>(undefined);
- 
+
 declare global {
   interface Window {
     Telegram: any;
   }
 }
- 
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User>(() => {
     const saved = localStorage.getItem('user_data');
     const tg = window.Telegram?.WebApp;
     const tgUser = tg?.initDataUnsafe?.user;
- 
+
     if (tgUser) {
       return {
         id: tgUser.id.toString(),
@@ -63,7 +63,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         totalWon: saved ? JSON.parse(saved).totalWon : 0,
       };
     }
- 
+
     if (saved) return JSON.parse(saved);
     return {
       id: '1',
@@ -75,7 +75,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       totalWon: 0,
     };
   });
- 
+
   useEffect(() => {
     const tg = window.Telegram?.WebApp;
     if (tg) {
@@ -83,7 +83,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       tg.expand();
     }
   }, []);
- 
+
   // Tasks - subscription task with channel URL
   const [tasks, setTasks] = useState<Task[]>(() => {
     const saved = localStorage.getItem('tasks_data');
@@ -113,27 +113,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       },
     ];
   });
- 
+
   // Referrals list
   const [referrals, setReferrals] = useState<Referral[]>(() => {
     const saved = localStorage.getItem('referrals_data');
     if (saved) return JSON.parse(saved);
     return [];
   });
- 
+
   // Daily bonus last claimed timestamp
   const [dailyBonusLastClaimed, setDailyBonusLastClaimed] = useState<number>(() => {
     const saved = localStorage.getItem('daily_bonus_last');
     return saved ? parseInt(saved) : 0;
   });
- 
+
   // Subscription bonus claimed flag (permanent, never reset)
   const [subscriptionClaimed, setSubscriptionClaimed] = useState<boolean>(() => {
     return localStorage.getItem('subscription_claimed') === 'true';
   });
- 
+
   const [onlineCount, setOnlineCount] = useState(132);
- 
+
   useEffect(() => {
     const interval = setInterval(() => {
       setOnlineCount(prev => {
@@ -143,19 +143,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, 5000);
     return () => clearInterval(interval);
   }, []);
- 
+
   useEffect(() => {
     localStorage.setItem('user_data', JSON.stringify(user));
   }, [user]);
- 
+
   useEffect(() => {
     localStorage.setItem('tasks_data', JSON.stringify(tasks));
   }, [tasks]);
- 
+
   useEffect(() => {
     localStorage.setItem('referrals_data', JSON.stringify(referrals));
   }, [referrals]);
- 
+
   // Returns seconds left until next daily bonus (0 = can claim now)
   const getDailyBonusTimeLeft = (): number => {
     if (dailyBonusLastClaimed === 0) return 0;
@@ -163,7 +163,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const remaining = 24 * 3600 - elapsed;
     return remaining > 0 ? Math.floor(remaining) : 0;
   };
- 
+
   const claimDailyBonus = (): boolean => {
     if (getDailyBonusTimeLeft() > 0) return false;
     const now = Date.now();
@@ -172,11 +172,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     updateDiamonds(2);
     return true;
   };
- 
+
   const completeTask = (taskId: string) => {
     const task = tasks.find(t => t.id === taskId);
     if (!task || task.completed) return;
- 
+
     if (task.type === 'subscription') {
       // Subscription bonus: only once ever
       if (subscriptionClaimed) return;
@@ -196,7 +196,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // Referral task handled by share button in ReferralsView
     }
   };
- 
+
   const updateDiamonds = (amount: number) => {
     setUser(prev => ({
       ...prev,
@@ -204,7 +204,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       totalWon: amount > 0 ? (prev.totalWon || 0) + amount : (prev.totalWon || 0)
     }));
   };
- 
+
   const addReferral = (name: string) => {
     const newRef: Referral = {
       id: Date.now().toString(),
@@ -218,11 +218,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
     updateDiamonds(5);
   };
- 
+
   const spinWheel = () => {
     const prizes = [10, 5, 7, 0, -10, 7, 5, 10];
     const isHardMode = user.diamonds >= 60;
- 
+
     let result: number;
     if (isHardMode) {
       const random = Math.random() * 100;
@@ -236,11 +236,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } else {
       result = prizes[Math.floor(Math.random() * prizes.length)];
     }
- 
+
     updateDiamonds(-2);
     return result;
   };
- 
+
   return (
     <AppContext.Provider value={{
       user, tasks, referrals, completeTask, updateDiamonds, spinWheel,
@@ -250,7 +250,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     </AppContext.Provider>
   );
 };
- 
+
 export const useApp = () => {
   const context = useContext(AppContext);
   if (!context) throw new Error('useApp must be used within AppProvider');
