@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Diamond } from 'lucide-react';
 import { motion, useAnimation } from 'motion/react';
- 
+
 const PRIZES = [10, 5, 7, 0, -10, 7, 5, 10];
 const COLORS = [
   'bg-red-500', 'bg-emerald-400', 'bg-purple-500', 'bg-red-500',
@@ -12,40 +12,40 @@ const HEX_COLORS = [
   '#ef4444', '#34d399', '#a855f7', '#ef4444',
   '#facc15', '#60a5fa', '#f97316', '#c084fc'
 ];
- 
+
 export const WheelView: React.FC = () => {
   const { user, spinWheel, onlineCount, updateDiamonds } = useApp();
   const [isSpinning, setIsSpinning] = useState(false);
   const [result, setResult] = useState<number | null>(null);
   const [rotation, setRotation] = useState(0);
   const controls = useAnimation();
- 
+
   const handleSpin = async () => {
     if (isSpinning || user.diamonds < 2) return;
- 
+
     setIsSpinning(true);
     setResult(null);
- 
+
     const winValue = spinWheel();
- 
+
     const prizeIndex = PRIZES.findIndex(p => p === winValue);
     const segmentAngle = 360 / PRIZES.length;
     const randomSpins = 5 + Math.random() * 5;
     const targetSegment = prizeIndex !== -1 ? prizeIndex : 4;
- 
+
     const newRotation = rotation + randomSpins * 360 + (360 - targetSegment * segmentAngle);
     setRotation(newRotation);
- 
+
     await controls.start({
       rotate: newRotation,
       transition: { duration: 4, ease: [0.15, 0.0, 0.1, 1.0] }
     });
- 
+
     updateDiamonds(winValue);
     setIsSpinning(false);
     setResult(winValue);
   };
- 
+
   // SVG-based wheel for precise rendering with large numbers
   const size = 288; // w-72 = 288px
   const cx = size / 2;
@@ -53,7 +53,7 @@ export const WheelView: React.FC = () => {
   const r = size / 2 - 4;
   const numSegments = PRIZES.length;
   const angleStep = (2 * Math.PI) / numSegments;
- 
+
   const getSegmentPath = (index: number) => {
     const startAngle = index * angleStep - Math.PI / 2;
     const endAngle = startAngle + angleStep;
@@ -63,7 +63,7 @@ export const WheelView: React.FC = () => {
     const y2 = cy + r * Math.sin(endAngle);
     return `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 0 1 ${x2} ${y2} Z`;
   };
- 
+
   const getTextPosition = (index: number) => {
     const angle = index * angleStep - Math.PI / 2 + angleStep / 2;
     const textR = r * 0.65;
@@ -73,7 +73,7 @@ export const WheelView: React.FC = () => {
       angle: (index * (360 / numSegments)) + (360 / numSegments / 2) + 90
     };
   };
- 
+
   return (
     <div className="px-4 py-6 flex flex-col items-center pb-32">
       {/* Top bar */}
@@ -90,19 +90,19 @@ export const WheelView: React.FC = () => {
           ))}
         </div>
       </div>
- 
+
       {/* The Wheel - SVG based with large numbers */}
       <div className="relative mb-12" style={{ width: size, height: size }}>
         {/* Pointer arrow on the right */}
         <div className="absolute -right-4 top-1/2 -translate-y-1/2 z-20">
           <div className="w-10 h-10 bg-blue-400 [clip-path:polygon(100%_50%,0_0,0_100%)]"></div>
         </div>
- 
+
         {/* Center logo on top */}
         <div className="absolute inset-0 m-auto w-16 h-16 bg-white rounded-full z-10 shadow-lg flex items-center justify-center border-4 border-blue-100" style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)', position: 'absolute' }}>
           <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center text-white font-black text-sm">FP</div>
         </div>
- 
+
         <motion.div
           animate={controls}
           className="w-full h-full"
@@ -111,12 +111,12 @@ export const WheelView: React.FC = () => {
           <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
             {/* Outer border circle */}
             <circle cx={cx} cy={cy} r={r + 3} fill="none" stroke="#60a5fa" strokeWidth="6" />
- 
+
             {PRIZES.map((prize, i) => {
               const textPos = getTextPosition(i);
               const isNegative = prize < 0;
               const displayVal = prize === 0 ? '0' : (prize > 0 ? `+${prize}` : `${prize}`);
- 
+
               return (
                 <g key={i}>
                   {/* Segment */}
@@ -162,7 +162,7 @@ export const WheelView: React.FC = () => {
           </svg>
         </motion.div>
       </div>
- 
+
       {/* Recent Winners */}
       <div className="w-full space-y-3">
         {[2500, 1000, 500].map((win, i) => (
@@ -182,7 +182,7 @@ export const WheelView: React.FC = () => {
           </div>
         ))}
       </div>
- 
+
       {/* Spin Button */}
       <div className="fixed bottom-24 left-0 right-0 px-4">
         <button
@@ -201,7 +201,7 @@ export const WheelView: React.FC = () => {
           </div>
         </button>
       </div>
- 
+
       {/* Result Modal */}
       {result !== null && !isSpinning && (
         <motion.div
